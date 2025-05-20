@@ -1069,6 +1069,7 @@ This server, through its unified `claude_code` tool, unlocks a wide range of pow
 - **Permissions Issues:** Make sure you've run the "Important First-Time Setup" step.
 - **JSON Errors from Server:** If `MCP_CLAUDE_DEBUG` is `true`, error messages or logs might interfere with MCP's JSON parsing. Set to `false` for normal operation.
 - **ESM/Import Errors:** Ensure you are using Node.js v20 or later.
+- **`__dirname` is not defined in ES module scope:** This is a known issue with ES modules. The server now includes a fix that creates an ES modules equivalent of `__dirname` using `fileURLToPath` and `dirname` from the `node:url` and `node:path` modules, respectively. If you encounter this error, make sure you're using the latest version of the server.
 - **Client Timeouts:** For long-running operations, the server sends heartbeat messages every 15 seconds to prevent client timeouts. If you still experience timeouts, you can adjust the heartbeat interval using the `MCP_HEARTBEAT_INTERVAL_MS` environment variable.
 - **Network/Server Errors:** The server now includes automatic retry logic for transient errors. If you're still experiencing issues, try increasing the `MCP_MAX_RETRIES` and `MCP_RETRY_DELAY_MS` values.
 - **Claude CLI Fallback Warning:** If you see a warning about Claude CLI not found at ~/.claude/local/claude, this is normal. The server is falling back to using the `claude` command from your PATH. You can set the `CLAUDE_CLI_PATH` environment variable to specify the exact path to your Claude CLI executable if needed.
