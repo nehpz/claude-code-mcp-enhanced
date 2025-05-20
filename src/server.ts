@@ -12,11 +12,19 @@ import { spawn } from 'node:child_process';
 import { existsSync, watch } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve as pathResolve } from 'node:path';
+import { join, resolve as pathResolve, dirname } from 'node:path';
 import * as path from 'path';
 import * as os from 'os'; // Added os import
+import { fileURLToPath } from 'node:url';
 import retry from 'async-retry';
 import packageJson from '../package.json' with { type: 'json' }; // Import package.json with attribute
+
+// Create __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Import task command functions
+import { convertTaskMarkdown, executeTask, taskStatus } from './task_command.js';
 
 // Define environment variables globally
 const debugMode = process.env.MCP_CLAUDE_DEBUG === 'true';
