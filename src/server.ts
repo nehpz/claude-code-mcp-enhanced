@@ -996,7 +996,7 @@ class ClaudeCodeServer {
         debugLog(`[Debug] No workFolder provided, using default CWD: ${effectiveCwd}`);
       }
       
-      // For tasks with a parent, add boomerang context to the prompt
+
       if (parentTaskId) {
         // Prepend task context to prompt
         const taskContext = `
@@ -1020,7 +1020,7 @@ ${returnMode === 'summary' ? 'IMPORTANT: Keep your response concise and focused 
       try {
         debugLog(`[Debug] Attempting to execute Claude CLI with prompt: "${prompt}" in CWD: "${effectiveCwd}"`);
 
-        let claudeProcessArgs = [this.claudeCliPath, '--dangerously-skip-permissions'];
+        let claudeProcessArgs = ['--dangerously-skip-permissions', '--output-format', 'json'];
         
         // Handle Roo mode selection if enabled and specified
         if (useRooModes && mode) {
@@ -1048,7 +1048,7 @@ ${returnMode === 'summary' ? 'IMPORTANT: Keep your response concise and focused 
         // Add the prompt
         claudeProcessArgs.push('-p', prompt);
         
-        debugLog(`[Debug] Invoking /bin/bash with args: ${claudeProcessArgs.join(' ')}`);
+        debugLog(`[Debug] Invoking ${this.claudeCliPath} with args: ${claudeProcessArgs.join(' ')}`);
 
         // Use retry for robust execution
         const { stdout, stderr } = await retry(
@@ -1059,8 +1059,8 @@ ${returnMode === 'summary' ? 'IMPORTANT: Keep your response concise and focused 
               }
               
               return await spawnAsync(
-                '/bin/bash', // Explicitly use /bin/bash as the command
-                claudeProcessArgs, // Pass the script path as the first argument to bash
+                this.claudeCliPath, // Use claudeCliPath directly as the command
+                claudeProcessArgs, // claudeProcessArgs now only contains arguments for claude CLI
                 { timeout: executionTimeoutMs, cwd: effectiveCwd }
               );
             } catch (err: any) {
@@ -1102,43 +1102,34 @@ ${returnMode === 'summary' ? 'IMPORTANT: Keep your response concise and focused 
         }
 
         // Process the output
-        let processedOutput = stdout;
+        let processedOutput: string;
         
-        // For tasks with a parent, add a boomerang marker to help identify responses
-        if (parentTaskId) {
-          // Add a boomerang marker with task info
-          const boomerangInfo = {
-            parentTaskId,
-            returnMode,
-            taskDescription: taskDescription || 'Unknown task',
-            completed: new Date().toISOString()
-          };
-          
-          // Add a hidden JSON marker that can be detected by the parent task
-          // Format is a special comment that won't interfere with normal content
-          const boomerangMarker = `\n\n<!-- BOOMERANG_RESULT ${JSON.stringify(boomerangInfo)} -->`;
-          processedOutput += boomerangMarker;
-          
-          debugLog(`[Debug] Added boomerang marker to output for parent task: ${parentTaskId}`);
-          
-          // Process the result back to the parent
-          // Import only if needed to avoid circular dependencies
-          const { processChildTaskResult } = await import('./boomerang_handler.js');
-          try {
-            // Generate a unique child task ID if not already set
-            const childTaskId = `child_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-            processChildTaskResult(childTaskId, processedOutput)
-              .then(processed => {
-                debugLog(`[Debug] Boomerang result processing ${processed ? 'succeeded' : 'failed'} for task ${childTaskId} and parent ${parentTaskId}`);
-              })
-              .catch(error => {
-                debugLog(`[Error] Failed to process boomerang result: ${error}`);
-              });
-          } catch (error) {
-            debugLog(`[Error] Error during boomerang result processing: ${error}`);
-          }
-        }
+        try {
+          const claudeJsonOutput = JSON.parse(stdout);
+          debugLog('[Debug] Successfully parsed Claude CLI JSON output.');
 
+          if (parentTaskId) {
+            const finalOutputObject = {
+              claudeResult: claudeJsonOutput.result, // Or potentially the whole claudeJsonOutput
+              boomerang: {
+                parentTaskId: parentTaskId,
+                returnMode: returnMode,
+                taskDescription: taskDescription || 'Unknown task',
+                completed: new Date().toISOString()
+              }
+            };
+            processedOutput = JSON.stringify(finalOutputObject, null, 2);
+            debugLog(`[Debug] Constructed JSON output with boomerang data for parent task: ${parentTaskId}`);
+          } else {
+            processedOutput = claudeJsonOutput.result;
+          }
+          
+        } catch (parseError: any) {
+          debugLog(`[Warning] Failed to parse Claude CLI output as JSON: ${parseError.message}. Falling back to raw stdout.`);
+          console.error(`[Warning] Failed to parse Claude CLI output as JSON. Raw stdout will be used. Error: ${parseError.message}`);
+          processedOutput = stdout; // Fallback to raw stdout
+        }
+        
         // Request completed successfully, remove from tracking
         this.activeRequests.delete(requestId);
         debugLog(`[Debug] Request ${requestId} completed successfully`);
