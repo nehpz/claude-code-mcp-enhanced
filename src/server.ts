@@ -634,7 +634,7 @@ class ClaudeCodeServer {
         debugLog(`[Debug] No workFolder provided, using default CWD: ${effectiveCwd}`);
       }
       
-      // For tasks with a parent, add boomerang context to the prompt
+
       if (parentTaskId) {
         // Prepend task context to prompt
         const taskContext = `
