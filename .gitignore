@@ -94,3 +94,7 @@ converted_tasks.json
 .netrc
 .aws/
 .config/
+
+
+#Ignore windsurf AI rules
+.windsurfrules
